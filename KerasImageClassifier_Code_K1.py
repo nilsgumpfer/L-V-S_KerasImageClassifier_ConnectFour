@@ -1,0 +1,91 @@
+from keras.preprocessing.image import ImageDataGenerator
+from keras.models import Sequential
+from keras.layers import Activation, Dropout, Flatten, Dense, Convolution2D, MaxPooling2D
+# from keras.utils import np_utils, vis_utils
+from keras import backend as K
+
+
+# model and data processing constants
+batch_size = 16
+nb_epochs = 12
+nb_classes = 7
+
+# input data properties
+img_height, img_width = 70, 70
+img_size = (img_width, img_height)
+train_directory = 'data/train'
+test_directory = 'data/test'
+nb_train_samples = 22544
+nb_test_samples = 22544
+
+# size of pooling area for max pooling
+nb_pool = 2
+
+# convolution kernel size
+nb_conv = 3
+
+# number of color channels (greyscale: 1, RGB: 3)
+nb_channels = 3
+
+# based on defined mode in ~/.keras/keras.json, pick correct format
+# if K.image_data_format() == 'channels_first':
+# input_shape = (nb_channels, img_width, img_height)
+# else:
+input_shape = (img_width, img_height, nb_channels)
+
+# define model
+model = Sequential()
+model.add(Convolution2D(32, nb_conv, nb_conv, input_shape=input_shape, border_mode='valid'))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Convolution2D(32, nb_conv, nb_conv))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+model.add(Convolution2D(64, nb_conv, nb_conv))
+model.add(Activation('relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Dropout(0.25))
+
+model.add(Flatten())
+model.add(Dense(128))
+model.add(Activation('relu'))
+model.add(Dropout(0.5))
+model.add(Dense(nb_classes))
+model.add(Activation('softmax'))
+
+# build model
+model.compile(loss='categorical_crossentropy',
+              optimizer='adadelta',
+              metrics=['accuracy'])
+
+# visualize model
+# vis_utils.plot_model(model, to_file='simple_image_classification_architecture.png', show_shapes=True)
+
+# save model to be reusable
+model_json = model.to_json()
+with open('KerasImageClassifier_Model_K1.json', 'w') as model_file:
+    model_file.write(model_json)
+    model_file.close()
+
+# input data generator for training (doing only rescaling of color-values)
+train_imagegen = ImageDataGenerator(rescale=1. / 255)
+train_datagenerator = train_imagegen.flow_from_directory(train_directory, target_size=img_size, batch_size=batch_size)
+
+# input data generator for testing (doing only rescaling of color-values)
+test_imagegen = ImageDataGenerator(rescale=1. / 255)
+test_datagenerator = test_imagegen.flow_from_directory(train_directory, target_size=img_size, batch_size=batch_size)
+
+# load existing weights
+# model.load_weights('KerasImageClassifier_Weights_K1.h5')
+
+# train model
+model.fit_generator(train_datagenerator,
+                    samples_per_epoch=nb_train_samples,
+                    nb_epoch=nb_epochs,
+                    validation_data=test_datagenerator,
+                    nb_val_samples=nb_test_samples)
+
+# save model weights (to have a checkpoint where to proceed from)
+model.save_weights('KerasImageClassifier_Weights_K1.h5')
